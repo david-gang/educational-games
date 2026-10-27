@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Knights & Dragons: River Crossing!</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Quicksand:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Quicksand', sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+    .font-heading {
+      font-family: 'Fredoka One', cursive;
+    }
+    .btn-pop {
+      transition: all 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .btn-pop:hover {
+      transform: scale(1.05);
+    }
+    .btn-pop:active {
+      transform: scale(0.95);
+    }
+    @keyframes floatSlow {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-6px); }
+    }
+    .animate-float {
+      animation: floatSlow 3s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body class="bg-indigo-100 min-h-screen flex flex-col items-center justify-between p-2 sm:p-4 text-slate-800 overflow-x-hidden">
+
+  <!-- Header / Top Bar -->
+  <header class="w-full max-w-4xl flex flex-wrap justify-between items-center bg-white/90 backdrop-blur-md rounded-2xl p-3 sm:p-4 shadow-lg border-2 border-indigo-200 gap-2 z-10">
+    <div class="flex items-center gap-3">
+      <div class="bg-amber-400 p-2 sm:p-3 rounded-2xl text-2xl sm:text-3xl shadow-inner animate-float">
+        🏰
+      </div>
+      <div>
+        <h1 class="font-heading text-xl sm:text-2xl text-indigo-700 leading-tight">Knights & Dragons!</h1>
+        <p class="text-xs sm:text-sm text-slate-500 font-bold">Help all 3 Knights & 3 Dragons cross!</p>
+      </div>
+    </div>
+
+    <!-- Stats & Controls -->
+    <div class="flex items-center gap-2 sm:gap-4">
+      <div class="bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-xl text-center">
+        <span class="text-xs text-slate-400 uppercase font-extrabold block leading-none">Moves</span>
+        <span id="moveCount" class="font-heading text-lg sm:text-xl text-indigo-700">0</span>
+      </div>
+
+      <div class="bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl text-center">
+        <span class="text-xs text-amber-500 uppercase font-extrabold block leading-none">Target</span>
+        <span class="font-heading text-lg sm:text-xl text-amber-600">11</span>
+      </div>
+
+      <button id="soundToggleBtn" class="btn-pop bg-slate-100 hover:bg-slate-200 text-slate-700 p-2.5 rounded-xl font-bold text-lg shadow-sm border border-slate-300" title="Toggle Sound">
+        🔊
+      </button>
+
+      <button id="restartBtn" class="btn-pop bg-emerald-500 hover:bg-emerald-600 text-white font-heading px-3 sm:px-4 py-2 rounded-xl shadow-md border-b-4 border-emerald-700 flex items-center gap-1 text-sm sm:text-base">
+        🔄 Reset
+      </button>
+    </div>
+  </header>
+
+  <!-- Game Canvas Container -->
+  <main class="w-full max-w-4xl relative my-2 sm:my-4 flex-1 flex flex-col justify-center items-center">
+    <div class="relative w-full aspect-[16/9] max-h-[70vh] rounded-3xl overflow-hidden shadow-2xl border-4 border-white bg-indigo-300">
+      <canvas id="gameCanvas" class="w-full h-full block cursor-pointer"></canvas>
+
+      <!-- Interactive Instruction / Helper Bar -->
+      <div id="instructionBanner" class="absolute top-3 left-1/2 transform -translate-x-1/2 bg-white/90 backdrop-blur-sm px-4 py-1.5 rounded-full shadow-md border border-white/60 text-xs sm:text-sm font-bold text-slate-700 text-center max-w-[90%] pointer-events-none transition-all duration-300">
+        👇 Tap characters to load up to 2 into the raft!
+      </div>
+    </div>
+  </main>
+
+  <!-- Controls & Hint Bar -->
+  <footer class="w-full max-w-4xl flex justify-between items-center gap-3 bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-lg border-2 border-indigo-200 z-10">
+    <button id="hintBtn" class="btn-pop bg-amber-400 hover:bg-amber-500 text-amber-950 font-heading px-4 py-2.5 rounded-xl shadow-md border-b-4 border-amber-600 flex items-center gap-2 text-sm sm:text-base">
+      💡 Need a Hint?
+    </button>
+
+    <div id="hintBubble" class="hidden flex-1 bg-amber-50 border border-amber-200 text-amber-900 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold animate-pulse text-center">
+      Hint will appear here...
+    </div>
+
+    <button id="sailBtn" class="btn-pop bg-indigo-600 hover:bg-indigo-700 text-white font-heading px-6 py-2.5 rounded-xl shadow-lg border-b-4 border-indigo-800 text-base sm:text-lg flex items-center gap-2">
+      🚣 Cross River!
+    </button>
+  </footer>
+
+  <!-- Modal Dialog (Victory / Oops) -->
+  <div id="modalOverlay" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 opacity-0 pointer-events-none transition-opacity duration-300">
+    <div id="modalCard" class="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl text-center transform scale-90 transition-transform duration-300 border-4 border-indigo-200 relative overflow-hidden">
+      
+      <div id="modalEmoji" class="text-6xl sm:text-7xl mb-3 animate-bounce">
+        🐉
+      </div>
+
+      <h2 id="modalTitle" class="font-heading text-2xl sm:text-3xl text-slate-800 mb-2">
+        Oops!
+      </h2>
+
+      <p id="modalDescription" class="text-slate-600 text-sm sm:text-base font-semibold mb-6">
+        The dragons flew away!
+      </p>
+
+      <!-- Rating Stars for Victory -->
+      <div id="starContainer" class="flex justify-center gap-2 text-3xl mb-6 hidden">
+        <span class="star opacity-30 transition-all duration-300">⭐</span>
+        <span class="star opacity-30 transition-all duration-300">⭐</span>
+        <span class="star opacity-30 transition-all duration-300">⭐</span>
+      </div>
+
+      <button id="modalActionBtn" class="btn-pop w-full bg-emerald-500 hover:bg-emerald-600 text-white font-heading py-3.5 rounded-2xl shadow-lg border-b-4 border-emerald-700 text-lg">
+        Try Again 🚀
+      </button>
+    </div>
+  </div>
+
+  <script>
+    /* ==========================================================================
+       SOUND SYNTHESIZER (Web Audio API)
+       ========================================================================== */
+    class SoundEffects {
+      constructor() {
+        this.ctx = null;
+        this.muted = false;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) this.ctx = new AudioContext();
+        }
+      }
+
+      playSplash() {
+        if (this.muted || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(350, now);
+        osc.frequency.exponentialRampToValueAtTime(90, now + 0.35);
+
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.35);
+      }
+
+      playPop() {
+        if (this.muted || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(280, now);
+        osc.frequency.exponentialRampToValueAtTime(650, now + 0.1);
+
+        gain.gain.setValueAtTime(0.25, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.1);
+      }
+
+      playOops() {
+        if (this.muted || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(220, now);
+        osc.frequency.linearRampToValueAtTime(100, now + 0.5);
+
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.5);
+      }
+
+      playWin() {
+        if (this.muted || !this.ctx) return;
+        const notes = [261.63, 329.63, 392.00, 523.25, 659.25]; // C E G C E
+        notes.forEach((freq, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          const now = this.ctx.currentTime + idx * 0.12;
+
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now);
+
+          gain.gain.setValueAtTime(0.3, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.start(now);
+          osc.stop(now + 0.3);
+        });
+      }
+    }
+
+    const sound = new SoundEffects();
+
+    /* ==========================================================================
+       GAME ENGINE & STATE
+       ========================================================================== */
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // 3 Knights (k1, k2, k3) and 3 Dragons (d1, d2, d3)
+    // Locations: 'left', 'raft', 'right'
+    let state = {
+      raftPos: 'left', // 'left' or 'right'
+      characters: {
+        k1: { id: 'k1', type: 'knight', name: 'Knight', emoji: '⚔️', loc: 'left', color: '#e0f2fe' },
+        k2: { id: 'k2', type: 'knight', name: 'Knight', emoji: '🛡️', loc: 'left', color: '#e0f2fe' },
+        k3: { id: 'k3', type: 'knight', name: 'Knight', emoji: '🏰', loc: 'left', color: '#e0f2fe' },
+        d1: { id: 'd1', type: 'dragon', name: 'Dragon', emoji: '🐉', loc: 'left', color: '#fef3c7' },
+        d2: { id: 'd2', type: 'dragon', name: 'Dragon', emoji: '🐲', loc: 'left', color: '#fef3c7' },
+        d3: { id: 'd3', type: 'dragon', name: 'Dragon', emoji: '🔥', loc: 'left', color: '#fef3c7' }
+      },
+      moves: 0,
+      isSailing: false,
+      isGameOver: false,
+      failAnimation: null // null or { side: 'left'|'right', timer: 0 }
+    };
+
+    let width = 800;
+    let height = 450;
+    let raftProgress = 0; // 0 = left, 1 = right
+
+    function resizeCanvas() {
+      const container = canvas.parentElement;
+      canvas.width = container.clientWidth;
+      canvas.height = container.clientHeight;
+      width = canvas.width;
+      height = canvas.height;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    /* ==========================================================================
+       CANVAS RENDERING
+       ========================================================================== */
+    let waveOffset = 0;
+
+    function render() {
+      ctx.clearRect(0, 0, width, height);
+
+      // 1. Sky & Sun
+      ctx.fillStyle = '#a5f3fc'; // Bright sky blue
+      ctx.fillRect(0, 0, width, height * 0.45);
+
+      ctx.fillStyle = '#fef08a'; // Bright Sun
+      ctx.beginPath();
+      ctx.arc(width * 0.5, height * 0.12, 38, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Cloud details
+      drawCloud(width * 0.12, height * 0.12, 0.8);
+      drawCloud(width * 0.82, height * 0.1, 1.1);
+
+      // 2. Shores
+      const landWidth = width * 0.28;
+
+      // Left Shore
+      ctx.fillStyle = '#4ade80';
+      ctx.beginPath();
+      ctx.moveTo(0, height * 0.35);
+      ctx.quadraticCurveTo(landWidth * 0.8, height * 0.38, landWidth, height);
+      ctx.lineTo(0, height);
+      ctx.fill();
+
+      // Right Shore
+      ctx.fillStyle = '#4ade80';
+      ctx.beginPath();
+      ctx.moveTo(width, height * 0.35);
+      ctx.quadraticCurveTo(width - landWidth * 0.8, height * 0.38, width - landWidth, height);
+      ctx.lineTo(width - landWidth, height);
+      ctx.lineTo(width, height);
+      ctx.fill();
+
+      // Sand shoreline edges
+      ctx.fillStyle = '#fef08a';
+      ctx.globalAlpha = 0.4;
+      ctx.fillRect(landWidth - 12, height * 0.5, 12, height * 0.5);
+      ctx.fillRect(width - landWidth, height * 0.5, 12, height * 0.5);
+      ctx.globalAlpha = 1.0;
+
+      // 3. Magical River
+      const riverStart = landWidth * 0.8;
+      const riverEnd = width - landWidth * 0.8;
+      ctx.fillStyle = '#0284c7';
+      ctx.fillRect(riverStart, height * 0.42, riverEnd - riverStart, height * 0.58);
+
+      // Animated wave ripples
+      waveOffset += 0.035;
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 3;
+      for (let y = height * 0.48; y < height; y += 22) {
+        ctx.beginPath();
+        for (let x = riverStart; x < riverEnd; x += 22) {
+          const waveY = y + Math.sin(x * 0.02 + waveOffset) * 4;
+          if (x === riverStart) ctx.moveTo(x, waveY);
+          else ctx.lineTo(x, waveY);
+        }
+        ctx.stroke();
+      }
+
+      // 4. Wooden Raft
+      const raftWidth = width * 0.24;
+      const raftHeight = height * 0.14;
+
+      const leftRaftX = landWidth - 10;
+      const rightRaftX = width - landWidth - raftWidth + 10;
+      const raftX = leftRaftX + (rightRaftX - leftRaftX) * raftProgress;
+      const raftY = height * 0.65 + Math.sin(waveOffset * 2) * 3;
+
+      // Log Raft Structure
+      ctx.fillStyle = '#854d0e';
+      ctx.beginPath();
+      ctx.roundRect(raftX, raftY, raftWidth, raftHeight, 12);
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#3f2305';
+      ctx.stroke();
+
+      // Individual Log lines inside Raft
+      ctx.strokeStyle = '#a16207';
+      ctx.lineWidth = 2;
+      for (let i = 1; i < 4; i++) {
+        ctx.beginPath();
+        ctx.moveTo(raftX, raftY + (raftHeight / 4) * i);
+        ctx.lineTo(raftX + raftWidth, raftY + (raftHeight / 4) * i);
+        ctx.stroke();
+      }
+
+      // 5. Seat indicators on Raft (2 explicit seats)
+      const seatRadius = Math.min(width, height) * 0.055;
+      const seat1 = { x: raftX + raftWidth * 0.28, y: raftY + raftHeight * 0.1 };
+      const seat2 = { x: raftX + raftWidth * 0.72, y: raftY + raftHeight * 0.1 };
+
+      [seat1, seat2].forEach((seat) => {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(seat.x, seat.y, seatRadius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      });
+
+      // 6. Character Positioning & Drawing
+      const charSize = Math.min(width, height) * 0.1;
+      const shoreY = height * 0.46;
+
+      // Predefined grid slots on Left and Right shores
+      const leftSlots = [
+        { x: width * 0.04, y: shoreY },
+        { x: width * 0.12, y: shoreY },
+        { x: width * 0.20, y: shoreY },
+        { x: width * 0.06, y: shoreY + charSize + 10 },
+        { x: width * 0.14, y: shoreY + charSize + 10 },
+        { x: width * 0.22, y: shoreY + charSize + 10 }
+      ];
+
+      const rightSlots = [
+        { x: width * 0.70, y: shoreY },
+        { x: width * 0.78, y: shoreY },
+        { x: width * 0.86, y: shoreY },
+        { x: width * 0.70, y: shoreY + charSize + 10 },
+        { x: width * 0.78, y: shoreY + charSize + 10 },
+        { x: width * 0.86, y: shoreY + charSize + 10 }
+      ];
+
+      const raftSlots = [
+        { x: seat1.x - charSize / 2, y: seat1.y - charSize / 2 },
+        { x: seat2.x - charSize / 2, y: seat2.y - charSize / 2 }
+      ];
+
+      let leftIdx = 0, rightIdx = 0, raftIdx = 0;
+      window.interactiveBounds = [];
+
+      Object.keys(state.characters).forEach((id) => {
+        const char = state.characters[id];
+        let coords = { x: 0, y: 0 };
+
+        if (char.loc === 'left') {
+          coords = leftSlots[leftIdx++];
+        } else if (char.loc === 'right') {
+          coords = rightSlots[rightIdx++];
+        } else if (char.loc === 'raft') {
+          coords = raftSlots[raftIdx++];
+        }
+
+        drawCharacterCard(char, coords.x, coords.y, charSize);
+
+        window.interactiveBounds.push({
+          id: id,
+          x: coords.x,
+          y: coords.y,
+          size: charSize,
+          loc: char.loc
+        });
+      });
+
+      // 7. Fail Animation Effect
+      if (state.failAnimation) {
+        drawFailAnimation();
+      }
+
+      requestAnimationFrame(render);
+    }
+
+    function drawCloud(x, y, scale) {
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(x, y, 18 * scale, 0, Math.PI * 2);
+      ctx.arc(x + 15 * scale, y - 10 * scale, 22 * scale, 0, Math.PI * 2);
+      ctx.arc(x + 35 * scale, y, 18 * scale, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawCharacterCard(char, x, y, size) {
+      ctx.save();
+
+      // Ground Shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.15)';
+      ctx.beginPath();
+      ctx.ellipse(x + size / 2, y + size * 0.88, size * 0.4, size * 0.15, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Card Body
+      ctx.fillStyle = char.color;
+      ctx.strokeStyle = char.type === 'knight' ? '#0284c7' : '#d97706';
+      ctx.lineWidth = char.loc === 'raft' ? 3 : 2;
+
+      ctx.beginPath();
+      ctx.roundRect(x, y, size, size, 16);
+      ctx.fill();
+      ctx.stroke();
+
+      // Emoji
+      ctx.font = `${size * 0.55}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(char.emoji, x + size / 2, y + size / 2);
+
+      ctx.restore();
+    }
+
+    function drawFailAnimation() {
+      const anim = state.failAnimation;
+      anim.timer += 0.02;
+
+      ctx.save();
+      ctx.fillStyle = 'rgba(239, 68, 68, 0.25)';
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.font = 'bold 36px Fredoka One, cursive';
+      ctx.fillStyle = '#dc2626';
+      ctx.textAlign = 'center';
+
+      const sideText = anim.side === 'left' ? 'Left Shore' : 'Right Shore';
+      ctx.fillText(`💨 Dragons got scared on the ${sideText} and flew away! 🐉`, width / 2, height * 0.3);
+      ctx.restore();
+    }
+
+    /* ==========================================================================
+       GAME LOGIC & INTERACTION
+       ========================================================================== */
+
+    function handleCharacterClick(id) {
+      if (state.isSailing || state.isGameOver) return;
+      sound.init();
+
+      const char = state.characters[id];
+
+      if (char.loc === 'raft') {
+        // Unload onto shore where raft is parked
+        char.loc = state.raftPos;
+        sound.playPop();
+      } else if (char.loc === state.raftPos) {
+        // Load into raft if there's room (max 2 characters in raft)
+        const inRaftCount = Object.values(state.characters).filter(c => c.loc === 'raft').length;
+        if (inRaftCount < 2) {
+          char.loc = 'raft';
+          sound.playPop();
+        } else {
+          showBanner("⚠️ The raft only has 2 seats!");
+        }
+      }
+    }
+
+    // Canvas Tap/Click Listener
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const canvasX = (e.clientX - rect.left) * scaleX;
+      const canvasY = (e.clientY - rect.top) * scaleY;
+
+      if (!window.interactiveBounds) return;
+
+      for (let item of window.interactiveBounds) {
+        if (
+          canvasX >= item.x &&
+          canvasX <= item.x + item.size &&
+          canvasY >= item.y &&
+          canvasY <= item.y + item.size
+        ) {
+          handleCharacterClick(item.id);
+          return;
+        }
+      }
+    });
+
+    // Sail Raft Command
+    function sailRaft() {
+      if (state.isSailing || state.isGameOver) return;
+      sound.init();
+
+      // Rule: At least 1 character must be in the raft to row!
+      const inRaft = Object.values(state.characters).filter(c => c.loc === 'raft');
+      if (inRaft.length === 0) {
+        showBanner("🚣 At least 1 character must be in the raft to row across!");
+        sound.playOops();
+        return;
+      }
+
+      state.isSailing = true;
+      state.moves++;
+      document.getElementById('moveCount').textContent = state.moves;
+      sound.playSplash();
+
+      const targetProgress = state.raftPos === 'left' ? 1 : 0;
+      const duration = 1200;
+      const startTime = performance.now();
+      const startProgress = raftProgress;
+
+      function animateSail(now) {
+        const elapsed = now - startTime;
+        const p = Math.min(elapsed / duration, 1);
+        const ease = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+        
+        raftProgress = startProgress + (targetProgress - startProgress) * ease;
+
+        if (p < 1) {
+          requestAnimationFrame(animateSail);
+        } else {
+          // Raft landed on destination shore
+          state.raftPos = state.raftPos === 'left' ? 'right' : 'left';
+
+          // Unload everyone in raft to current bank automatically
+          Object.values(state.characters).forEach(c => {
+            if (c.loc === 'raft') c.loc = state.raftPos;
+          });
+
+          state.isSailing = false;
+          checkRulesAndGameState();
+        }
+      }
+
+      requestAnimationFrame(animateSail);
+    }
+
+    /* ==========================================================================
+       RULE VALIDATION & GAME OVER / WIN CHECKS
+       ========================================================================== */
+    function checkRulesAndGameState() {
+      const sides = ['left', 'right'];
+
+      for (let side of sides) {
+        // Count Knights and Dragons on this shore
+        const knightsOnSide = Object.values(state.characters).filter(c => c.type === 'knight' && c.loc === side).length;
+        const dragonsOnSide = Object.values(state.characters).filter(c => c.type === 'dragon' && c.loc === side).length;
+
+        // Rule Check: If Knights > 0 and Dragons > Knights -> Dragons get scared and fly away!
+        if (knightsOnSide > 0 && dragonsOnSide > knightsOnSide) {
+          triggerLoss(side);
+          return;
+        }
+      }
+
+      // Check Win Condition: All 6 characters on 'right'
+      const allOnRight = Object.values(state.characters).every(c => c.loc === 'right');
+      if (allOnRight) {
+        triggerWin();
+      }
+    }
+
+    function triggerLoss(side) {
+      state.isGameOver = true;
+      state.failAnimation = { side: side, timer: 0 };
+      sound.playOops();
+
+      setTimeout(() => {
+        const sideName = side === 'left' ? 'left bank' : 'right bank';
+        showModal(
+          "Oops! Dragons Flew Away! 🐉",
+          `The Dragons outnumbered the Knights on the ${sideName} and got scared! Remember, if there are Knights present, Dragons must not outnumber them!`,
+          "🐉💨",
+          false
+        );
+      }, 1500);
+    }
+
+    function triggerWin() {
+      state.isGameOver = true;
+      sound.playWin();
+
+      confetti({
+        particleCount: 120,
+        spread: 80,
+        origin: { y: 0.6 }
+      });
+
+      // Rating Stars (Optimal is 11 moves)
+      let stars = 1;
+      if (state.moves === 11) stars = 3;
+      else if (state.moves <= 15) stars = 2;
+
+      setTimeout(() => {
+        showModal(
+          "Victory! 🎉",
+          `You safely transported all 3 Knights and 3 Dragons in ${state.moves} moves!`,
+          "🏆",
+          true,
+          stars
+        );
+      }, 500);
+    }
+
+    /* ==========================================================================
+       SOLVER & HINT ENGINE (BFS for Missionaries & Cannibals)
+       ========================================================================== */
+    function getHint() {
+      if (state.isGameOver) return;
+
+      // Extract current simplified state representation: [K_left, D_left, Boat_pos]
+      const kLeft = Object.values(state.characters).filter(c => c.type === 'knight' && (c.loc === 'left' || (c.loc === 'raft' && state.raftPos === 'left'))).length;
+      const dLeft = Object.values(state.characters).filter(c => c.type === 'dragon' && (c.loc === 'left' || (c.loc === 'raft' && state.raftPos === 'left'))).length;
+      const raftSide = state.raftPos; // 'left' or 'right'
+
+      // Check if raft currently has characters loaded
+      const inRaft = Object.values(state.characters).filter(c => c.loc === 'raft');
+
+      // Simple BFS solver from current state to (0,0,'right')
+      const path = solveBFS(kLeft, dLeft, raftSide === 'left' ? 1 : 0);
+
+      const bubble = document.getElementById('hintBubble');
+      if (path && path.length > 1) {
+        const nextStep = path[1]; // next target state
+        const dk = Math.abs(kLeft - nextStep.k);
+        const dd = Math.abs(dLeft - nextStep.d);
+
+        let actionText = "";
+        if (dk > 0 && dd > 0) actionText = `Load 1 Knight ⚔️ and 1 Dragon 🐉`;
+        else if (dk === 2) actionText = `Load 2 Knights ⚔️`;
+        else if (dd === 2) actionText = `Load 2 Dragons 🐉`;
+        else if (dk === 1) actionText = `Load 1 Knight ⚔️`;
+        else if (dd === 1) actionText = `Load 1 Dragon 🐉`;
+
+        const direction = raftSide === 'left' ? "across to the right" : "back to the left";
+        bubble.textContent = `💡 Hint: ${actionText} and row ${direction}!`;
+      } else {
+        bubble.textContent = "💡 You are so close! Load your chosen characters and row across!";
+      }
+
+      bubble.classList.remove('hidden');
+    }
+
+    function solveBFS(startK, startD, startBoat) {
+      // boat: 1 for left, 0 for right
+      const queue = [[{ k: startK, d: startD, b: startBoat }]];
+      const visited = new Set();
+      visited.add(`${startK},${startD},${startBoat}`);
+
+      const validMoves = [
+        { k: 1, d: 0 }, { k: 2, d: 0 },
+        { k: 0, d: 1 }, { k: 0, d: 2 },
+        { k: 1, d: 1 }
+      ];
+
+      while (queue.length > 0) {
+        const path = queue.shift();
+        const curr = path[path.length - 1];
+
+        if (curr.k === 0 && curr.d === 0 && curr.b === 0) {
+          return path;
+        }
+
+        for (let m of validMoves) {
+          let nextK, nextD, nextB;
+          if (curr.b === 1) { // moving left to right
+            nextK = curr.k - m.k;
+            nextD = curr.d - m.d;
+            nextB = 0;
+          } else { // moving right to left
+            nextK = curr.k + m.k;
+            nextD = curr.d + m.d;
+            nextB = 1;
+          }
+
+          // Validate numbers bounds
+          if (nextK < 0 || nextK > 3 || nextD < 0 || nextD > 3) continue;
+
+          // Validate safe state on both sides
+          const kRight = 3 - nextK;
+          const dRight = 3 - nextD;
+
+          const leftSafe = (nextK === 0 || nextK >= nextD);
+          const rightSafe = (kRight === 0 || kRight >= dRight);
+
+          if (leftSafe && rightSafe) {
+            const key = `${nextK},${nextD},${nextB}`;
+            if (!visited.has(key)) {
+              visited.add(key);
+              queue.push([...path, { k: nextK, d: nextD, b: nextB }]);
+            }
+          }
+        }
+      }
+      return null;
+    }
+
+    /* ==========================================================================
+       UI HELPERS & MODALS
+       ========================================================================== */
+    function showBanner(text) {
+      const banner = document.getElementById('instructionBanner');
+      banner.textContent = text;
+      banner.classList.add('bg-amber-100', 'text-amber-900');
+      setTimeout(() => {
+        banner.textContent = "👇 Tap characters to load up to 2 into the raft!";
+        banner.classList.remove('bg-amber-100', 'text-amber-900');
+      }, 2500);
+    }
+
+    function showModal(title, desc, emoji, isWin, stars = 0) {
+      const overlay = document.getElementById('modalOverlay');
+      const card = document.getElementById('modalCard');
+      const starBox = document.getElementById('starContainer');
+
+      document.getElementById('modalTitle').textContent = title;
+      document.getElementById('modalDescription').textContent = desc;
+      document.getElementById('modalEmoji').textContent = emoji;
+
+      if (isWin) {
+        starBox.classList.remove('hidden');
+        const starEls = starBox.querySelectorAll('.star');
+        starEls.forEach((el, idx) => {
+          if (idx < stars) {
+            el.classList.remove('opacity-30');
+            el.classList.add('scale-125');
+          } else {
+            el.classList.add('opacity-30');
+            el.classList.remove('scale-125');
+          }
+        });
+      } else {
+        starBox.classList.add('hidden');
+      }
+
+      overlay.classList.remove('opacity-0', 'pointer-events-none');
+      card.classList.remove('scale-90');
+      card.classList.add('scale-100');
+    }
+
+    function hideModal() {
+      const overlay = document.getElementById('modalOverlay');
+      const card = document.getElementById('modalCard');
+      overlay.classList.add('opacity-0', 'pointer-events-none');
+      card.classList.remove('scale-100');
+      card.classList.add('scale-90');
+    }
+
+    function resetGame() {
+      state = {
+        raftPos: 'left',
+        characters: {
+          k1: { id: 'k1', type: 'knight', name: 'Knight', emoji: '⚔️', loc: 'left', color: '#e0f2fe' },
+          k2: { id: 'k2', type: 'knight', name: 'Knight', emoji: '🛡️', loc: 'left', color: '#e0f2fe' },
+          k3: { id: 'k3', type: 'knight', name: 'Knight', emoji: '🏰', loc: 'left', color: '#e0f2fe' },
+          d1: { id: 'd1', type: 'dragon', name: 'Dragon', emoji: '🐉', loc: 'left', color: '#fef3c7' },
+          d2: { id: 'd2', type: 'dragon', name: 'Dragon', emoji: '🐲', loc: 'left', color: '#fef3c7' },
+          d3: { id: 'd3', type: 'dragon', name: 'Dragon', emoji: '🔥', loc: 'left', color: '#fef3c7' }
+        },
+        moves: 0,
+        isSailing: false,
+        isGameOver: false,
+        failAnimation: null
+      };
+      raftProgress = 0;
+      document.getElementById('moveCount').textContent = '0';
+      document.getElementById('hintBubble').classList.add('hidden');
+      hideModal();
+    }
+
+    /* ==========================================================================
+       EVENT LISTENERS & INIT
+       ========================================================================== */
+    document.getElementById('sailBtn').addEventListener('click', sailRaft);
+    document.getElementById('restartBtn').addEventListener('click', resetGame);
+    document.getElementById('modalActionBtn').addEventListener('click', resetGame);
+    document.getElementById('hintBtn').addEventListener('click', getHint);
+
+    document.getElementById('soundToggleBtn').addEventListener('click', (e) => {
+      sound.muted = !sound.muted;
+      e.target.textContent = sound.muted ? '🔇' : '🔊';
+    });
+
+    window.onload = () => {
+      render();
+    };
+  </script>
+</body>
+</html>

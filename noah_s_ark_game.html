@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>תיבת נח - אתגר החיות הטהורות והשאינן טהורות</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;700;800;900&display=swap');
+        
+        body {
+            font-family: 'Rubik', system-ui, -apple-system, sans-serif;
+            touch-action: manipulation;
+        }
+
+        /* Glassmorphism effects */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.90);
+            backdrop-filter: blur(12px);
+            border: 2px solid rgba(251, 191, 36, 0.45);
+        }
+
+        /* Custom pulsing animations */
+        @keyframes gentle-pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+        }
+
+        .pulse-btn {
+            animation: gentle-pulse 2.5s infinite ease-in-out;
+        }
+
+        /* Prevent text selection */
+        .no-select {
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* Scrollbar styling for modal */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #fef3c7;
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d97706;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-b from-sky-300 via-sky-100 to-amber-100 min-h-screen flex flex-col items-center justify-between p-2 sm:p-4 no-select overflow-x-hidden">
+
+    <!-- Header Panel -->
+    <header class="w-full max-w-4xl glass-panel rounded-2xl p-3 sm:p-4 shadow-xl mb-2 flex flex-col sm:flex-row justify-between items-center gap-3 border-amber-300">
+        <div class="flex items-center gap-3">
+            <span class="text-4xl sm:text-5xl">🚢</span>
+            <div>
+                <h1 class="text-2xl sm:text-3xl font-black text-amber-900 leading-tight">תיבת נח: אתגר ההלכה והמספרים</h1>
+                <p class="text-xs sm:text-sm text-amber-800 font-semibold">
+                    <span class="text-emerald-700 font-bold">חיה טהורה</span> 🕊️ = <span class="bg-amber-200 px-1.5 py-0.5 rounded text-amber-900 font-black">7</span> | 
+                    <span class="text-rose-700 font-bold">אינה טהורה</span> 🦁 = <span class="bg-amber-200 px-1.5 py-0.5 rounded text-amber-900 font-black">2</span>
+                </p>
+            </div>
+        </div>
+
+        <!-- Controls & Guide Buttons -->
+        <div class="flex items-center gap-2 flex-wrap justify-center">
+            <button onclick="openGuideModal()" class="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-3 sm:px-4 rounded-xl shadow transition-all active:scale-95 text-xs sm:text-sm">
+                <span>📜</span>
+                <span>מילון החיות וההלכה</span>
+            </button>
+            <button id="soundToggleBtn" onclick="toggleSound()" class="flex items-center gap-1.5 bg-amber-200 hover:bg-amber-300 text-amber-900 font-bold py-2 px-3 sm:px-4 rounded-xl shadow transition-all active:scale-95 text-xs sm:text-sm">
+                <span id="soundIcon" class="text-base sm:text-lg">🔊</span>
+                <span id="soundText" class="hidden sm:inline">צלילים</span>
+            </button>
+            <button id="hintToggleBtn" onclick="toggleHints()" class="flex items-center gap-1.5 bg-sky-200 hover:bg-sky-300 text-sky-900 font-bold py-2 px-3 sm:px-4 rounded-xl shadow transition-all active:scale-95 text-xs sm:text-sm">
+                <span id="hintIcon">💡</span>
+                <span id="hintText">רמזים: פעיל</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Stats Bar -->
+    <div class="w-full max-w-4xl grid grid-cols-4 gap-2 sm:gap-4 mb-2">
+        <div class="glass-panel p-2 sm:p-3 rounded-xl text-center shadow-md border-amber-200">
+            <div class="text-xs text-amber-800 font-bold">סיבוב</div>
+            <div id="roundDisplay" class="text-lg sm:text-2xl font-black text-amber-900">1 / 10</div>
+        </div>
+        <div class="glass-panel p-2 sm:p-3 rounded-xl text-center shadow-md border-amber-200">
+            <div class="text-xs text-amber-800 font-bold">ניקוד</div>
+            <div id="scoreDisplay" class="text-xl sm:text-3xl font-black text-emerald-600">0</div>
+        </div>
+        <div class="glass-panel p-2 sm:p-3 rounded-xl text-center shadow-md border-amber-200">
+            <div class="text-xs text-amber-800 font-bold">חיות בניצול</div>
+            <div id="savedDisplay" class="text-xl sm:text-3xl font-black text-blue-600">0</div>
+        </div>
+        <div class="glass-panel p-2 sm:p-3 rounded-xl text-center shadow-md border-amber-200">
+            <div class="text-xs text-amber-800 font-bold">שיא 🏆</div>
+            <div id="highScoreDisplay" class="text-xl sm:text-3xl font-black text-amber-600">0</div>
+        </div>
+    </div>
+
+    <!-- Main Game Canvas Container -->
+    <main class="w-full max-w-4xl relative flex-1 flex flex-col items-center justify-center min-h-[340px] sm:min-h-[440px]">
+        <div class="w-full h-full relative rounded-2xl overflow-hidden shadow-2xl border-4 border-amber-800/80 bg-sky-200">
+            <canvas id="gameCanvas" class="w-full h-full block"></canvas>
+            
+            <!-- Current Group Info Badge -->
+            <div id="groupInfoBadge" class="absolute top-3 right-3 bg-white/90 backdrop-blur border-2 border-amber-400 px-3 py-1.5 rounded-xl shadow-lg flex items-center gap-2 text-xs sm:text-sm font-bold text-amber-950">
+                <span id="badgeAnimalEmoji" class="text-xl">🐄</span>
+                <span id="badgeAnimalName">פרה</span>
+                <span class="text-gray-300">|</span>
+                <span>כמות: <span id="badgeCount" class="text-amber-700 font-black text-base">7</span></span>
+                <span id="badgeKosherHint" class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full text-xs font-bold border border-emerald-300">טהורה</span>
+            </div>
+
+            <!-- Dynamic Floating Banner Message -->
+            <div id="statusBanner" class="absolute top-16 left-1/2 transform -translate-x-1/2 px-5 py-2.5 rounded-2xl font-black text-sm sm:text-base shadow-2xl opacity-0 transition-all duration-300 pointer-events-none text-center max-w-[92%] z-10 border-2">
+            </div>
+        </div>
+    </main>
+
+    <!-- Action Controls -->
+    <footer id="gameControls" class="w-full max-w-4xl mt-3 grid grid-cols-2 gap-3 sm:gap-6">
+        <button id="btnAllow" onclick="handleUserChoice(true)" class="pulse-btn bg-gradient-to-b from-emerald-400 to-emerald-600 hover:from-emerald-500 hover:to-emerald-700 text-white font-black py-4 sm:py-5 px-3 rounded-2xl text-lg sm:text-2xl shadow-xl hover:shadow-2xl active:scale-95 transition-all flex flex-col items-center justify-center gap-1 border-b-4 border-emerald-800">
+            <div class="flex items-center gap-2">
+                <span>✅</span>
+                <span>הכנס לתיבה</span>
+            </div>
+            <span class="text-xs sm:text-sm font-normal bg-emerald-900/30 px-3 py-0.5 rounded-full">(הכמות מותאמת להלכה)</span>
+        </button>
+
+        <button id="btnReject" onclick="handleUserChoice(false)" class="bg-gradient-to-b from-rose-400 to-rose-600 hover:from-rose-500 hover:to-rose-700 text-white font-black py-4 sm:py-5 px-3 rounded-2xl text-lg sm:text-2xl shadow-xl hover:shadow-2xl active:scale-95 transition-all flex flex-col items-center justify-center gap-1 border-b-4 border-rose-800">
+            <div class="flex items-center gap-2">
+                <span>❌</span>
+                <span>אל תכניס</span>
+            </div>
+            <span class="text-xs sm:text-sm font-normal bg-rose-900/30 px-3 py-0.5 rounded-full">(כמות שגויה להלכה)</span>
+        </button>
+    </footer>
+
+    <!-- Game Over / Victory Modal -->
+    <div id="gameOverModal" class="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-all duration-500">
+        <div class="bg-amber-50 border-4 border-amber-800 rounded-3xl max-w-md w-full p-6 text-center shadow-2xl transform scale-95 transition-transform duration-500" id="gameOverCard">
+            <div class="text-6xl mb-3">🚢🏆</div>
+            <h2 class="text-2xl sm:text-3xl font-black text-amber-900 mb-2">המשחק הסתיים!</h2>
+            <p id="gameOverSummary" class="text-amber-800 font-bold text-base mb-4">סיימת את 10 הסיבובים בהצלחה רבה!</p>
+            
+            <div class="bg-amber-200/80 rounded-2xl p-4 mb-6 border border-amber-300 space-y-2">
+                <div class="flex justify-between text-lg font-bold text-amber-950">
+                    <span>ניקוד סופי:</span>
+                    <span id="finalScore" class="text-emerald-600 font-black">0</span>
+                </div>
+                <div class="flex justify-between text-lg font-bold text-amber-950">
+                    <span>חיות שניצלו:</span>
+                    <span id="finalSaved" class="text-blue-600 font-black">0</span>
+                </div>
+                <div class="flex justify-between text-lg font-bold text-amber-950 border-t border-amber-300 pt-2">
+                    <span>שיא אישי:</span>
+                    <span id="finalHighScore" class="text-amber-600 font-black">0</span>
+                </div>
+            </div>
+
+            <button onclick="restartGame()" class="w-full bg-gradient-to-b from-amber-500 to-amber-700 hover:from-amber-600 hover:to-amber-800 text-white font-black py-3.5 px-6 rounded-2xl text-lg shadow-xl active:scale-95 transition-all">
+                🔄 שחק שוב
+            </button>
+        </div>
+    </div>
+
+    <!-- Halacha & Animals Cheat Sheet Modal -->
+    <div id="guideModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="bg-amber-50 border-4 border-amber-800 rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            <!-- Modal Header -->
+            <div class="bg-amber-800 text-white p-4 flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">📜</span>
+                    <h2 class="text-xl font-black">מילון החיות וכללי התיבה</h2>
+                </div>
+                <button onclick="closeGuideModal()" class="text-amber-200 hover:text-white font-black text-2xl leading-none">&times;</button>
+            </div>
+
+            <!-- Modal Content -->
+            <div class="p-4 overflow-y-auto space-y-4 text-amber-950 text-sm sm:text-base">
+                <!-- Core Rule Explanation -->
+                <div class="bg-amber-200/80 p-3 rounded-xl border border-amber-400">
+                    <h3 class="font-extrabold text-amber-900 text-base mb-1">📖 מה כותבת התורה? (פרשת נח)</h3>
+                    <p class="mb-1">"מִכֹּל הַבְּהֵמָה הַטְּהוֹרָה תִּקַּח לְךָ <strong>שִׁבְעָה שִׁבְעָה</strong>... וּמִן הַבְּהֵמָה אֲשֶׁר לֹא טְהֹרָה הִוא <strong>שְׁנַיִם</strong>..."</p>
+                    <ul class="list-disc list-inside font-bold text-amber-900 space-y-1 mt-2">
+                        <li><span class="text-emerald-700">חיה טהורה (כשרה):</span> צריכה להיכנס בדיוק ב-<strong>7</strong>!</li>
+                        <li><span class="text-rose-700">חיה שאינה טהורה (לא כשרה):</span> צריכה להיכנס בדיוק ב-<strong>2</strong> (זוג)!</li>
+                    </ul>
+                </div>
+
+                <!-- Kosher Animals Grid -->
+                <div>
+                    <h4 class="font-black text-emerald-800 text-base mb-2 flex items-center gap-2">
+                        <span>🕊️</span> חיות טהורות / כשרות (צריכות 7):
+                    </h4>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2" id="kosherListGrid">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+
+                <!-- Non-Kosher Animals Grid -->
+                <div>
+                    <h4 class="font-black text-rose-800 text-base mb-2 flex items-center gap-2">
+                        <span>🦁</span> חיות שאינן טהורות (צריכות 2):
+                    </h4>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2" id="nonKosherListGrid">
+                        <!-- Filled by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-3 bg-amber-200/50 border-t border-amber-300 text-center">
+                <button onclick="closeGuideModal()" class="bg-amber-800 hover:bg-amber-900 text-white font-bold py-2 px-6 rounded-xl shadow transition-all">
+                    הבנתי, בוא נשחק! 🚀
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Web Audio API & Game Engine Script -->
+    <script>
+        // --- Animals Database ---
+        const KOSHER_ANIMALS = [
+            { emoji: '🐄', name: 'פרה', kosher: true },
+            { emoji: '🐑', name: 'כבשה', kosher: true },
+            { emoji: '🐐', name: 'עז', kosher: true },
+            { emoji: '🦌', name: 'צבי', kosher: true },
+            { emoji: '🐓', name: 'תרנגול', kosher: true },
+            { emoji: '🦆', name: 'ברווז', kosher: true },
+            { emoji: '🕊️', name: 'יונה', kosher: true },
+            { emoji: '🐂', name: 'שור', kosher: true },
+            { emoji: '🦃', name: 'תרנגול הודו', kosher: true }
+        ];
+
+        const NON_KOSHER_ANIMALS = [
+            { emoji: '🦁', name: 'אריה', kosher: false },
+            { emoji: '🐘', name: 'פיל', kosher: false },
+            { emoji: '🐫', name: 'גמל', kosher: false },
+            { emoji: '🐖', name: 'חזיר', kosher: false },
+            { emoji: '🐎', name: 'סוס', kosher: false },
+            { emoji: '🐻', name: 'דוב', kosher: false },
+            { emoji: '🐺', name: 'זאב', kosher: false },
+            { emoji: '🦊', name: 'שועל', kosher: false },
+            { emoji: '🐰', name: 'ארנב', kosher: false },
+            { emoji: '🐵', name: 'קוף', kosher: false },
+            { emoji: '🐅', name: 'נמר', kosher: false },
+            { emoji: '🦘', name: 'קנגורו', kosher: false }
+        ];
+
+        // --- Web Audio API Synthesizer ---
+        let audioCtx = null;
+        let soundEnabled = true;
+        let showHints = true;
+
+        function initAudio() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (AudioContext) {
+                    audioCtx = new AudioContext();
+                }
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            document.getElementById('soundIcon').textContent = soundEnabled ? '🔊' : '🔇';
+            document.getElementById('soundText').textContent = soundEnabled ? 'צלילים' : 'מושתק';
+            if (soundEnabled) initAudio();
+        }
+
+        function toggleHints() {
+            showHints = !showHints;
+            document.getElementById('hintIcon').textContent = showHints ? '💡' : '🔒';
+            document.getElementById('hintText').textContent = showHints ? 'רמזים: פעיל' : 'רמזים: כבוי';
+            updateGroupBadge();
+        }
+
+        function playTone(freq, duration, type = 'sine', startDelay = 0) {
+            if (!soundEnabled) return;
+            initAudio();
+            if (!audioCtx) return;
+
+            setTimeout(() => {
+                try {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+                    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + duration);
+                } catch (e) {
+                    console.log('Audio error:', e);
+                }
+            }, startDelay * 1000);
+        }
+
+        function playSuccessSound() {
+            playTone(523.25, 0.12, 'triangle', 0);    // C5
+            playTone(659.25, 0.12, 'triangle', 0.08); // E5
+            playTone(783.99, 0.15, 'triangle', 0.16); // G5
+            playTone(1046.50, 0.35, 'triangle', 0.25); // C6
+        }
+
+        function playErrorSound() {
+            playTone(220, 0.2, 'sawtooth', 0);
+            playTone(170, 0.3, 'sawtooth', 0.15);
+        }
+
+        function playWalkStepSound() {
+            playTone(140 + Math.random() * 40, 0.04, 'sine', 0);
+        }
+
+        // --- Game Setup & State ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const TOTAL_ROUNDS = 10;
+        let currentRound = 1;
+        let score = 0;
+        let savedCount = 0;
+        let highScore = parseInt(localStorage.getItem('noah_high_score') || '0', 10);
+
+        let gameState = 'WAITING_INPUT'; // 'WAITING_INPUT', 'WALKING_IN', 'WALKING_AWAY', 'GAME_OVER'
+        
+        let currentAnimalObj = KOSHER_ANIMALS[0];
+        let currentCount = 7;
+        let animals = []; // Active Animal objects
+        let confetti = [];
+        let waveOffset = 0;
+        let usedPoolHistory = [];
+
+        // --- High Score Display Init ---
+        document.getElementById('highScoreDisplay').textContent = highScore;
+
+        // --- Canvas Resizing ---
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            if (animals.length > 0 && gameState === 'WAITING_INPUT') {
+                repositionGroupAtShore();
+            }
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        // --- Animal Class ---
+        class Animal {
+            constructor(emoji, x, y, size) {
+                this.emoji = emoji;
+                this.x = x;
+                this.y = y;
+                this.targetX = x;
+                this.targetY = y;
+                this.size = size;
+                this.bounceOffset = Math.random() * Math.PI * 2;
+                this.facingLeft = true;
+                this.alpha = 1;
+                this.rotation = 0;
+            }
+
+            update(dt) {
+                const speed = 0.08;
+                this.x += (this.targetX - this.x) * speed;
+                this.y += (this.targetY - this.y) * speed;
+
+                const distToTarget = Math.abs(this.targetX - this.x);
+                if (distToTarget > 2) {
+                    this.bounceOffset += dt * 11;
+                } else {
+                    this.bounceOffset += dt * 2;
+                }
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = 1.0; // Crystal clear fully opaque emoji rendering
+                ctx.translate(this.x, this.y + Math.sin(this.bounceOffset) * 5);
+                
+                if (!this.facingLeft) {
+                    ctx.scale(-1, 1);
+                }
+                ctx.rotate(this.rotation);
+
+                // Shadow
+                ctx.beginPath();
+                ctx.ellipse(0, this.size * 0.35, this.size * 0.3, this.size * 0.09, 0, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+                ctx.fill();
+
+                // Emoji
+                ctx.font = `${this.size}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.emoji, 0, 0);
+
+                ctx.restore();
+            }
+        }
+
+        // --- Confetti Particles ---
+        class Particle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 12;
+                this.vy = -Math.random() * 10 - 4;
+                this.gravity = 0.3;
+                this.size = Math.random() * 8 + 4;
+                this.color = `hsl(${Math.random() * 360}, 90%, 60%)`;
+                this.rotation = Math.random() * Math.PI * 2;
+                this.vRot = (Math.random() - 0.5) * 0.2;
+                this.life = 1.0;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += this.gravity;
+                this.rotation += this.vRot;
+                this.life -= 0.015;
+            }
+
+            draw(ctx) {
+                if (this.life <= 0) return;
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.life);
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+                ctx.fillStyle = this.color;
+                ctx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size);
+                ctx.restore();
+            }
+        }
+
+        function triggerConfetti() {
+            const arkRampX = canvas.width * 0.35;
+            const arkRampY = canvas.height * 0.65;
+            for (let i = 0; i < 65; i++) {
+                confetti.push(new Particle(arkRampX, arkRampY));
+            }
+        }
+
+        // --- Game Logic & Spawning ---
+        function spawnNextGroup() {
+            if (currentRound > TOTAL_ROUNDS) {
+                endGame();
+                return;
+            }
+
+            // Combine both pools and pick with minimal repetition
+            const allAnimals = [
+                ...KOSHER_ANIMALS.map(a => ({ ...a, type: 'kosher' })),
+                ...NON_KOSHER_ANIMALS.map(a => ({ ...a, type: 'non-kosher' }))
+            ];
+
+            // Filter out recently used animals if possible
+            let available = allAnimals.filter(a => !usedPoolHistory.includes(a.name));
+            if (available.length === 0) {
+                usedPoolHistory = [];
+                available = allAnimals;
+            }
+
+            currentAnimalObj = available[Math.floor(Math.random() * available.length)];
+            usedPoolHistory.push(currentAnimalObj.name);
+            if (usedPoolHistory.length > 8) usedPoolHistory.shift();
+
+            // Determine correct count needed according to Halacha
+            const correctCountNeeded = currentAnimalObj.kosher ? 7 : 2;
+
+            // 50% chance correct count, 50% chance incorrect count
+            if (Math.random() < 0.5) {
+                currentCount = correctCountNeeded;
+            } else {
+                const choices = [1, 2, 3, 4, 5, 6, 7].filter(c => c !== correctCountNeeded);
+                currentCount = choices[Math.floor(Math.random() * choices.length)];
+            }
+
+            animals = [];
+            let baseSizeRatio = currentCount > 4 ? 0.08 : 0.11;
+            const animalSize = Math.min(canvas.width * baseSizeRatio, 52);
+
+            const startX = canvas.width + 120;
+            const startY = canvas.height * 0.72;
+
+            for (let i = 0; i < currentCount; i++) {
+                const anim = new Animal(currentAnimalObj.emoji, startX + i * (animalSize * 0.85), startY, animalSize);
+                animals.push(anim);
+            }
+
+            repositionGroupAtShore();
+            updateGroupBadge();
+            updateStats();
+            gameState = 'WAITING_INPUT';
+            toggleButtons(true);
+        }
+
+        function repositionGroupAtShore() {
+            const shoreX = canvas.width * 0.70;
+            const shoreY = canvas.height * 0.72;
+            let baseSizeRatio = currentCount > 4 ? 0.08 : 0.11;
+            const animalSize = Math.min(canvas.width * baseSizeRatio, 52);
+
+            animals.forEach((anim, idx) => {
+                anim.size = animalSize;
+                const row = idx % 2;
+                const col = Math.floor(idx / 2);
+                
+                if (currentCount > 4) {
+                    anim.targetX = shoreX + (col - (Math.ceil(currentCount/2) - 1) / 2) * (animalSize * 1.1);
+                    anim.targetY = shoreY + (row === 1 ? 16 : -8);
+                } else {
+                    anim.targetX = shoreX + (idx - (currentCount - 1) / 2) * (animalSize * 1.15);
+                    anim.targetY = shoreY;
+                }
+                
+                anim.facingLeft = true;
+                anim.alpha = 1;
+            });
+        }
+
+        function updateGroupBadge() {
+            document.getElementById('badgeAnimalEmoji').textContent = currentAnimalObj.emoji;
+            document.getElementById('badgeAnimalName').textContent = currentAnimalObj.name;
+            document.getElementById('badgeCount').textContent = currentCount;
+
+            const kosherHintEl = document.getElementById('badgeKosherHint');
+            if (showHints) {
+                kosherHintEl.classList.remove('hidden');
+                if (currentAnimalObj.kosher) {
+                    kosherHintEl.textContent = 'טהורה (צריכה 7)';
+                    kosherHintEl.className = 'bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full text-xs font-bold border border-emerald-300';
+                } else {
+                    kosherHintEl.textContent = 'אינה טהורה (צריכה 2)';
+                    kosherHintEl.className = 'bg-rose-100 text-rose-800 px-2 py-0.5 rounded-full text-xs font-bold border border-rose-300';
+                }
+            } else {
+                kosherHintEl.classList.add('hidden');
+            }
+        }
+
+        function handleUserChoice(userAllowed) {
+            if (gameState !== 'WAITING_INPUT') return;
+            initAudio();
+
+            const requiredCount = currentAnimalObj.kosher ? 7 : 2;
+            const isCorrectHalacha = (currentCount === requiredCount);
+
+            toggleButtons(false);
+
+            if (userAllowed === isCorrectHalacha) {
+                // Correct Choice
+                score += 10;
+                playSuccessSound();
+
+                if (isCorrectHalacha) {
+                    savedCount += currentCount;
+                    triggerConfetti();
+
+                    const explanation = currentAnimalObj.kosher 
+                        ? `כל הכבוד! ${currentAnimalObj.name} היא חיה טהורה שנכנסת בשבעה (7)! 🌈` 
+                        : `נכון מאוד! ${currentAnimalObj.name} אינה טהורה ולכן נכנסת בזוג (2)! 🌈`;
+                    
+                    showBanner(explanation, 'bg-emerald-500 text-white border-emerald-700');
+
+                    gameState = 'WALKING_IN';
+                    const rampX = canvas.width * 0.32;
+                    const rampY = canvas.height * 0.58;
+
+                    animals.forEach((anim, idx) => {
+                        setTimeout(() => {
+                            anim.targetX = rampX - (idx % 3) * 15;
+                            anim.targetY = rampY;
+                            playWalkStepSound();
+                        }, idx * 120);
+                    });
+
+                    setTimeout(() => {
+                        animals.forEach(anim => {
+                            anim.targetX = canvas.width * 0.18;
+                            anim.alpha = 0;
+                        });
+                    }, 1100);
+
+                } else {
+                    const explanation = currentAnimalObj.kosher
+                        ? `נכון! ${currentAnimalObj.name} היא חיה טהורה וצריכה 7 (הגיעו ${currentCount}). 🛑`
+                        : `נכון! ${currentAnimalObj.name} אינה טהורה וצריכה 2 בלבד (הגיעו ${currentCount}). 🛑`;
+
+                    showBanner(explanation, 'bg-sky-600 text-white border-sky-800');
+
+                    gameState = 'WALKING_AWAY';
+                    animals.forEach((anim, idx) => {
+                        anim.facingLeft = false;
+                        anim.targetX = canvas.width + 150 + idx * 30;
+                    });
+                }
+            } else {
+                // Mistake
+                score = Math.max(0, score - 5);
+                playErrorSound();
+
+                let explanation = '';
+                if (currentAnimalObj.kosher) {
+                    explanation = `טעות! ${currentAnimalObj.name} היא חיה טהורה וצריכה לבוא בשבעה (7) ולא ${currentCount}! ❌`;
+                } else {
+                    explanation = `טעות! ${currentAnimalObj.name} אינה טהורה וצריכה לבוא בזוג (2) ולא ${currentCount}! ❌`;
+                }
+
+                showBanner(explanation, 'bg-rose-600 text-white border-rose-800');
+
+                gameState = 'WALKING_AWAY';
+                animals.forEach((anim, idx) => {
+                    anim.facingLeft = false;
+                    anim.rotation = 0.3;
+                    setTimeout(() => anim.rotation = -0.3, 150);
+                    setTimeout(() => anim.rotation = 0, 300);
+                    anim.targetX = canvas.width + 150 + idx * 30;
+                });
+            }
+
+            updateStats();
+
+            // Next round or End game after delay
+            setTimeout(() => {
+                currentRound++;
+                if (currentRound > TOTAL_ROUNDS) {
+                    endGame();
+                } else {
+                    spawnNextGroup();
+                }
+            }, 2700);
+        }
+
+        function toggleButtons(enabled) {
+            document.getElementById('btnAllow').disabled = !enabled;
+            document.getElementById('btnReject').disabled = !enabled;
+            document.getElementById('btnAllow').style.opacity = enabled ? '1' : '0.5';
+            document.getElementById('btnReject').style.opacity = enabled ? '1' : '0.5';
+        }
+
+        function updateStats() {
+            document.getElementById('roundDisplay').textContent = `${Math.min(currentRound, TOTAL_ROUNDS)} / ${TOTAL_ROUNDS}`;
+            document.getElementById('scoreDisplay').textContent = score;
+            document.getElementById('savedDisplay').textContent = savedCount;
+            document.getElementById('highScoreDisplay').textContent = highScore;
+        }
+
+        function endGame() {
+            gameState = 'GAME_OVER';
+            toggleButtons(false);
+
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('noah_high_score', highScore.toString());
+            }
+
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('finalSaved').textContent = savedCount;
+            document.getElementById('finalHighScore').textContent = highScore;
+
+            const modal = document.getElementById('gameOverModal');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modal.classList.add('opacity-100');
+            const card = document.getElementById('gameOverCard');
+            card.classList.remove('scale-95');
+            card.classList.add('scale-100');
+        }
+
+        function restartGame() {
+            const modal = document.getElementById('gameOverModal');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            modal.classList.remove('opacity-100');
+            
+            currentRound = 1;
+            score = 0;
+            savedCount = 0;
+            usedPoolHistory = [];
+            spawnNextGroup();
+        }
+
+        function showBanner(text, bgClasses) {
+            const banner = document.getElementById('statusBanner');
+            banner.textContent = text;
+            banner.className = `absolute top-16 left-1/2 transform -translate-x-1/2 px-5 py-2.5 rounded-2xl font-black text-sm sm:text-base shadow-2xl transition-all duration-300 pointer-events-none text-center max-w-[92%] z-10 border-2 opacity-100 scale-100 ${bgClasses}`;
+
+            setTimeout(() => {
+                banner.classList.add('opacity-0', 'scale-95');
+            }, 2400);
+        }
+
+        // --- Render Background Elements ---
+        function drawBackground() {
+            const w = canvas.width;
+            const h = canvas.height;
+
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, h * 0.7);
+            skyGrad.addColorStop(0, '#38bdf8');
+            skyGrad.addColorStop(1, '#e0f2fe');
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, w, h);
+
+            const rainbowRadius = Math.max(10, Math.min(w, h) * 0.45);
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(w * 0.5, h * 0.3, rainbowRadius, Math.PI, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(252, 165, 165, 0.25)';
+            ctx.lineWidth = 10;
+            ctx.stroke();
+            
+            if (rainbowRadius > 20) {
+                ctx.beginPath();
+                ctx.arc(w * 0.5, h * 0.3, rainbowRadius - 10, Math.PI, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(253, 224, 71, 0.25)';
+                ctx.lineWidth = 10;
+                ctx.stroke();
+            }
+
+            if (rainbowRadius > 30) {
+                ctx.beginPath();
+                ctx.arc(w * 0.5, h * 0.3, rainbowRadius - 20, Math.PI, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(134, 239, 172, 0.25)';
+                ctx.lineWidth = 10;
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            ctx.fillStyle = '#4ade80';
+            ctx.beginPath();
+            ctx.moveTo(w * 0.45, h);
+            ctx.quadraticCurveTo(w * 0.6, h * 0.68, w, h * 0.7);
+            ctx.lineTo(w, h);
+            ctx.closePath();
+            ctx.fill();
+
+            waveOffset += 0.03;
+            ctx.fillStyle = '#0284c7';
+            ctx.beginPath();
+            ctx.moveTo(0, h * 0.82);
+            for (let x = 0; x <= w; x += 20) {
+                const y = Math.sin(x * 0.02 + waveOffset) * 5 + h * 0.82;
+                ctx.lineTo(x, y);
+            }
+            ctx.lineTo(w, h);
+            ctx.lineTo(0, h);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = '#0369a1';
+            ctx.beginPath();
+            ctx.moveTo(0, h * 0.86);
+            for (let x = 0; x <= w; x += 25) {
+                const y = Math.cos(x * 0.018 - waveOffset) * 5 + h * 0.86;
+                ctx.lineTo(x, y);
+            }
+            ctx.lineTo(w, h);
+            ctx.lineTo(0, h);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        // --- Render Noah's Ark ---
+        function drawArk() {
+            const w = canvas.width;
+            const h = canvas.height;
+
+            const arkBaseX = w * 0.02;
+            const arkBaseY = h * 0.55;
+            const arkWidth = w * 0.38;
+            const arkHeight = h * 0.28;
+
+            ctx.save();
+
+            ctx.fillStyle = '#78350f';
+            ctx.beginPath();
+            ctx.moveTo(arkBaseX, arkBaseY);
+            ctx.lineTo(arkBaseX + arkWidth, arkBaseY);
+            ctx.quadraticCurveTo(arkBaseX + arkWidth * 0.85, arkBaseY + arkHeight, arkBaseX + arkWidth * 0.2, arkBaseY + arkHeight);
+            ctx.quadraticCurveTo(arkBaseX - 10, arkBaseY + arkHeight * 0.5, arkBaseX, arkBaseY);
+            ctx.closePath();
+            ctx.fill();
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#451a03';
+            ctx.stroke();
+
+            ctx.strokeStyle = '#92400e';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(arkBaseX + 10, arkBaseY + arkHeight * 0.35);
+            ctx.lineTo(arkBaseX + arkWidth * 0.9, arkBaseY + arkHeight * 0.35);
+            ctx.moveTo(arkBaseX + 20, arkBaseY + arkHeight * 0.65);
+            ctx.lineTo(arkBaseX + arkWidth * 0.75, arkBaseY + arkHeight * 0.65);
+            ctx.stroke();
+
+            const cabinX = arkBaseX + arkWidth * 0.2;
+            const cabinY = arkBaseY - arkHeight * 0.55;
+            const cabinW = arkWidth * 0.55;
+            const cabinH = arkHeight * 0.55;
+
+            ctx.fillStyle = '#b45309';
+            ctx.fillRect(cabinX, cabinY, cabinW, cabinH);
+            ctx.strokeRect(cabinX, cabinY, cabinW, cabinH);
+
+            ctx.fillStyle = '#991b1b';
+            ctx.beginPath();
+            ctx.moveTo(cabinX - 15, cabinY);
+            ctx.lineTo(cabinX + cabinW / 2, cabinY - 25);
+            ctx.lineTo(cabinX + cabinW + 15, cabinY);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            const rampStartX = arkBaseX + arkWidth * 0.68;
+            const rampStartY = arkBaseY - 5;
+            const rampEndX = w * 0.52;
+            const rampEndY = h * 0.74;
+
+            ctx.fillStyle = '#a16207';
+            ctx.beginPath();
+            ctx.moveTo(rampStartX, rampStartY);
+            ctx.lineTo(rampEndX, rampEndY);
+            ctx.lineTo(rampEndX, rampEndY + 12);
+            ctx.lineTo(rampStartX, rampStartY + 12);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = '#451a03';
+            ctx.stroke();
+
+            const noahX = cabinX + cabinW * 0.75;
+            const noahY = cabinY - 15;
+            ctx.font = `${Math.min(w * 0.08, 40)}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.fillText('🧔‍♂️', noahX, noahY);
+
+            const doveX = w * 0.25 + Math.sin(waveOffset * 1.5) * 20;
+            const doveY = h * 0.18 + Math.cos(waveOffset * 1.5) * 8;
+            ctx.font = `${Math.min(w * 0.06, 30)}px sans-serif`;
+            ctx.fillText('🕊️', doveX, doveY);
+
+            ctx.restore();
+        }
+
+        // --- Main Game Render Loop ---
+        let lastTime = performance.now();
+
+        function gameLoop(currentTime) {
+            const dt = Math.min((currentTime - lastTime) / 1000, 0.1);
+            lastTime = currentTime;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            drawBackground();
+            drawArk();
+
+            animals.forEach(anim => {
+                anim.update(dt);
+                anim.draw(ctx);
+            });
+
+            confetti.forEach((p, idx) => {
+                p.update();
+                p.draw(ctx);
+                if (p.life <= 0) confetti.splice(idx, 1);
+            });
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- Modal UI Helpers ---
+        function populateGuideModal() {
+            const kosherGrid = document.getElementById('kosherListGrid');
+            kosherGrid.innerHTML = KOSHER_ANIMALS.map(a => `
+                <div class="bg-emerald-100/80 border border-emerald-300 p-2 rounded-xl flex items-center gap-2">
+                    <span class="text-2xl">${a.emoji}</span>
+                    <div>
+                        <div class="font-bold text-emerald-950">${a.name}</div>
+                        <div class="text-xs text-emerald-700 font-semibold">צריכה 7</div>
+                    </div>
+                </div>
+            `).join('');
+
+            const nonKosherGrid = document.getElementById('nonKosherListGrid');
+            nonKosherGrid.innerHTML = NON_KOSHER_ANIMALS.map(a => `
+                <div class="bg-rose-100/80 border border-rose-300 p-2 rounded-xl flex items-center gap-2">
+                    <span class="text-2xl">${a.emoji}</span>
+                    <div>
+                        <div class="font-bold text-rose-950">${a.name}</div>
+                        <div class="text-xs text-rose-700 font-semibold">צריכה 2</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function openGuideModal() {
+            const modal = document.getElementById('guideModal');
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modal.classList.add('opacity-100');
+        }
+
+        function closeGuideModal() {
+            const modal = document.getElementById('guideModal');
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            modal.classList.remove('opacity-100');
+        }
+
+        // --- Initializer ---
+        window.onload = function() {
+            populateGuideModal();
+            resizeCanvas();
+            spawnNextGroup();
+            requestAnimationFrame(gameLoop);
+        };
+    </script>
+</body>
+</html>
