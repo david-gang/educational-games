@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>משחק מחבואים משוכלל בחצר!</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #a8e6cf, #dbedc6);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      user-select: none;
+    }
+
+    h1 {
+      color: #2d5a27;
+      margin: 8px 0 4px 0;
+      font-size: 26px;
+      text-shadow: 1px 1px 2px rgba(255,255,255,0.8);
+    }
+
+    #stats {
+      font-size: 17px;
+      color: #1b4332;
+      font-weight: bold;
+      margin-bottom: 6px;
+      background: rgba(255,255,255,0.7);
+      padding: 5px 14px;
+      border-radius: 20px;
+    }
+
+    #game-container {
+      position: relative;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      border-radius: 16px;
+      overflow: hidden;
+      border: 4px solid #2d5a27;
+      background-color: #7ec850;
+    }
+
+    canvas {
+      display: block;
+      cursor: pointer;
+    }
+
+    #controls-hint {
+      margin-top: 8px;
+      font-size: 14px;
+      color: #2d5a27;
+      font-weight: bold;
+    }
+
+    /* Difficulty Selection Menu */
+    #menu-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.75);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      color: white;
+    }
+
+    #menu-overlay h2 {
+      margin-bottom: 15px;
+      font-size: 32px;
+      color: #ffeb3b;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+    }
+
+    .diff-btn {
+      padding: 12px 30px;
+      margin: 8px;
+      font-size: 20px;
+      font-weight: bold;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      transition: transform 0.1s;
+    }
+
+    .diff-btn:active {
+      transform: scale(0.95);
+    }
+
+    #btn-easy { background: #4caf50; color: white; }
+    #btn-medium { background: #ff9800; color: white; }
+    #btn-hard { background: #f44336; color: white; }
+
+    .touch-controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 8px;
+      gap: 4px;
+    }
+
+    .touch-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn {
+      width: 50px;
+      height: 50px;
+      background: #4caf50;
+      color: white;
+      font-size: 20px;
+      font-weight: bold;
+      border: none;
+      border-radius: 10px;
+      box-shadow: 0 3px #2e7d32;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      touch-action: manipulation;
+    }
+
+    .btn:active {
+      transform: translateY(2px);
+      box-shadow: 0 1px #2e7d32;
+    }
+
+    .action-btn {
+      width: 110px;
+      background: #ff9800;
+      box-shadow: 0 3px #e65100;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🌳 מחבואים בחצר הגדולה! 🏃‍♂️</h1>
+  <div id="stats">בחר רמת קושי כדי להתחיל</div>
+
+  <div id="game-container">
+    <div id="menu-overlay">
+      <h2>בחר רמת קושי</h2>
+      <button class="diff-btn" id="btn-easy">🟢 קל (בלי טיימר, 5 חברים)</button>
+      <button class="diff-btn" id="btn-medium">🟡 בינוני (60 שניות, 7 חברים)</button>
+      <button class="diff-btn" id="btn-hard">🔴 קשה (45 שניות, 10 חברים)</button>
+    </div>
+    <canvas id="gameCanvas" width="800" height="500"></canvas>
+  </div>
+
+  <div id="controls-hint">השתמש בחצים במקלדת כדי ללכת, ובמקש רווח או קליק על עץ כדי לחפש!</div>
+
+  <div class="touch-controls">
+    <button class="btn" id="btn-up">⬆️</button>
+    <div class="touch-row">
+      <button class="btn" id="btn-left">⬅️</button>
+      <button class="btn action-btn" id="btn-action">🔍 חפש!</button>
+      <button class="btn" id="btn-right">➡️</button>
+    </div>
+    <button class="btn" id="btn-down">⬇️</button>
+  </div>
+
+<script>
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+
+  // Web Audio API
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  function playTone(freq, type = 'sine', duration = 0.15) {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration);
+  }
+
+  function playFoundSound() {
+    playTone(523.25, 'triangle', 0.1);
+    setTimeout(() => playTone(659.25, 'triangle', 0.1), 100);
+    setTimeout(() => playTone(783.99, 'triangle', 0.2), 200);
+  }
+
+  function playSneakSound() {
+    playTone(200, 'sine', 0.08);
+  }
+
+  // Game Settings per Difficulty
+  let settings = {
+    kidsCount: 5,
+    timer: 0, // 0 means no timer
+    moveSpeed: 3.8
+  };
+
+  const player = {
+    x: 400,
+    y: 250,
+    radius: 16,
+    speed: 3.8,
+    color: '#ff4081'
+  };
+
+  // Full hideouts map (22 potential hiding spots)
+  const allHideouts = [
+    { x: 80,  y: 80,  type: 'tree', radius: 34 },
+    { x: 220, y: 70,  type: 'bush', radius: 26 },
+    { x: 380, y: 90,  type: 'tree', radius: 36 },
+    { x: 550, y: 70,  type: 'tree', radius: 38 },
+    { x: 700, y: 90,  type: 'bush', radius: 28 },
+    { x: 100, y: 220, type: 'tree', radius: 35 },
+    { x: 250, y: 210, type: 'bush', radius: 27 },
+    { x: 420, y: 200, type: 'tree', radius: 40 },
+    { x: 600, y: 220, type: 'bush', radius: 26 },
+    { x: 710, y: 230, type: 'tree', radius: 36 },
+    { x: 80,  y: 380, type: 'tree', radius: 38 },
+    { x: 200, y: 400, type: 'bush', radius: 28 },
+    { x: 350, y: 380, type: 'tree', radius: 35 },
+    { x: 500, y: 390, type: 'bush', radius: 29 },
+    { x: 650, y: 380, type: 'tree', radius: 37 },
+    { x: 730, y: 400, type: 'bush', radius: 25 },
+    { x: 150, y: 140, type: 'bush', radius: 24 },
+    { x: 480, y: 140, type: 'bush', radius: 25 },
+    { x: 300, y: 300, type: 'tree', radius: 33 },
+    { x: 580, y: 310, type: 'bush', radius: 26 },
+    { x: 200, y: 300, type: 'tree', radius: 32 },
+    { x: 600, y: 130, type: 'tree', radius: 34 }
+  ];
+
+  let activeHideouts = [];
+  const kidsNames = ['יוסי', 'נועה', 'דני', 'מיכל', 'עומר', 'יובל', 'תומר', 'מאיה', 'שירה', 'איתי'];
+  const kidsColors = ['#3f51b5', '#e91e63', '#ff9800', '#9c27b0', '#00bcd4', '#4caf50', '#ffeb3b', '#795548', '#607d8b', '#e91e63'];
+
+  let kids = [];
+  let runners = [];
+  let confetti = [];
+  let keys = {};
+  let gameState = 'MENU'; // MENU, PLAYING, WON, LOST
+  let timeLeft = 0;
+  let timerInterval = null;
+
+  function startGame(difficulty) {
+    if (difficulty === 'easy') {
+      settings.kidsCount = 5;
+      settings.timer = 0;
+      activeHideouts = allHideouts.slice(0, 12);
+    } else if (difficulty === 'medium') {
+      settings.kidsCount = 7;
+      settings.timer = 60;
+      activeHideouts = allHideouts.slice(0, 17);
+    } else if (difficulty === 'hard') {
+      settings.kidsCount = 10;
+      settings.timer = 45;
+      activeHideouts = [...allHideouts];
+    }
+
+    player.x = 400;
+    player.y = 250;
+    kids = [];
+    runners = [];
+    confetti = [];
+    gameState = 'PLAYING';
+    document.getElementById('menu-overlay').style.display = 'none';
+
+    // Assign random unique hideouts to kids
+    let availableIndices = [...activeHideouts.keys()];
+    for (let i = 0; i < settings.kidsCount; i++) {
+      const randIdx = Math.floor(Math.random() * availableIndices.length);
+      const hIndex = availableIndices.splice(randIdx, 1)[0];
+      kids.push({
+        id: i + 1,
+        name: kidsNames[i],
+        color: kidsColors[i],
+        hideoutIndex: hIndex,
+        found: false,
+        peeking: false
+      });
+    }
+
+    updateStatsDisplay();
+
+    // Setup timer if applicable
+    if (timerInterval) clearInterval(timerInterval);
+    if (settings.timer > 0) {
+      timeLeft = settings.timer;
+      timerInterval = setInterval(() => {
+        if (gameState === 'PLAYING') {
+          timeLeft--;
+          updateStatsDisplay();
+          if (timeLeft <= 0) {
+            gameState = 'LOST';
+            clearInterval(timerInterval);
+          }
+        }
+      }, 1000);
+    }
+  }
+
+  function updateStatsDisplay() {
+    const foundCount = kids.filter(k => k.found).length;
+    let text = `מצאת: ${foundCount} מתוך ${kids.length} חברים`;
+    if (settings.timer > 0) {
+      text += ` | ⏳ זמן נותר: ${timeLeft} שניות`;
+    }
+    document.getElementById('stats').innerText = text;
+  }
+
+  // Keyboard controls
+  window.addEventListener('keydown', e => {
+    keys[e.key] = true;
+    if (e.key === ' ' || e.key === 'Enter') {
+      if (gameState === 'PLAYING') checkNearHideout();
+      else if (gameState === 'WON' || gameState === 'LOST') resetToMenu();
+    }
+  });
+
+  window.addEventListener('keyup', e => {
+    keys[e.key] = false;
+  });
+
+  // Touch controls
+  function bindBtn(id, key) {
+    const btn = document.getElementById(id);
+    if(!btn) return;
+    btn.addEventListener('touchstart', (e) => { e.preventDefault(); keys[key] = true; });
+    btn.addEventListener('touchend', (e) => { e.preventDefault(); keys[key] = false; });
+    btn.addEventListener('mousedown', () => keys[key] = true);
+    btn.addEventListener('mouseup', () => keys[key] = false);
+  }
+
+  bindBtn('btn-up', 'ArrowUp');
+  bindBtn('btn-down', 'ArrowDown');
+  bindBtn('btn-left', 'ArrowLeft');
+  bindBtn('btn-right', 'ArrowRight');
+
+  document.getElementById('btn-action').addEventListener('click', () => {
+    if (gameState === 'PLAYING') checkNearHideout();
+    else if (gameState === 'WON' || gameState === 'LOST') resetToMenu();
+  });
+
+  document.getElementById('btn-easy').addEventListener('click', () => startGame('easy'));
+  document.getElementById('btn-medium').addEventListener('click', () => startGame('medium'));
+  document.getElementById('btn-hard').addEventListener('click', () => startGame('hard'));
+
+  // Canvas click support for direct finding!
+  canvas.addEventListener('click', (e) => {
+    if (gameState === 'WON' || gameState === 'LOST') {
+      resetToMenu();
+      return;
+    }
+    if (gameState !== 'PLAYING') return;
+
+    const rect = canvas.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+
+    // Check if clicked near any active hideout and player is close enough
+    activeHideouts.forEach((h, idx) => {
+      const distToHideout = Math.hypot(clickX - h.x, clickY - h.y);
+      const distToPlayer = Math.hypot(player.x - h.x, player.y - h.y);
+      
+      // If clicked on/near this hideout and player is within reasonable search range
+      if (distToHideout < h.radius + 15 && distToPlayer < h.radius + 50) {
+        searchHideoutIndex(idx);
+      }
+    });
+  });
+
+  function checkNearHideout() {
+    activeHideouts.forEach((h, idx) => {
+      const dist = Math.hypot(player.x - h.x, player.y - h.y);
+      if (dist < h.radius + 38) {
+        searchHideoutIndex(idx);
+      }
+    });
+  }
+
+  function searchHideoutIndex(idx) {
+    let foundAny = false;
+    kids.forEach(k => {
+      if (k.hideoutIndex === idx && !k.found) {
+        k.found = true;
+        foundAny = true;
+        const h = activeHideouts[idx];
+        createConfetti(h.x, h.y);
+        playFoundSound();
+      }
+    });
+
+    updateStatsDisplay();
+
+    const foundCount = kids.filter(k => k.found).length;
+    if (foundCount === kids.length) {
+      gameState = 'WON';
+      if (timerInterval) clearInterval(timerInterval);
+      createBigWinConfetti();
+    }
+  }
+
+  function resetToMenu() {
+    gameState = 'MENU';
+    if (timerInterval) clearInterval(timerInterval);
+    document.getElementById('menu-overlay').style.display = 'flex';
+    document.getElementById('stats').innerText = 'בחר רמת קושי כדי להתחיל';
+  }
+
+  // Circulation / Kids moving between hideouts
+  setInterval(() => {
+    if (gameState !== 'PLAYING') return;
+
+    const unfound = kids.filter(k => !k.found && !runners.some(r => r.id === k.id));
+    if (unfound.length === 0) return;
+
+    const kidToMove = unfound[Math.floor(Math.random() * unfound.length)];
+    const curH = activeHideouts[kidToMove.hideoutIndex];
+
+    if (Math.hypot(player.x - curH.x, player.y - curH.y) < 100) return; // Don't move if player is too close
+
+    const occupied = kids.map(k => k.hideoutIndex);
+    const freeH = activeHideouts.map((_, i) => i).filter(i => !occupied.includes(i));
+
+    if (freeH.length > 0) {
+      const targetIdx = freeH[Math.floor(Math.random() * freeH.length)];
+      const targetH = activeHideouts[targetIdx];
+
+      runners.push({
+        id: kidToMove.id,
+        color: kidToMove.color,
+        startX: curH.x,
+        startY: curH.y,
+        currX: curH.x,
+        currY: curH.y,
+        targetX: targetH.x,
+        targetY: targetH.y,
+        targetHideoutIndex: targetIdx,
+        progress: 0
+      });
+      playSneakSound();
+    }
+  }, 3500);
+
+  // Peeking logic
+  setInterval(() => {
+    if (gameState !== 'PLAYING') return;
+    kids.forEach(k => {
+      if (!k.found && Math.random() < 0.35) {
+        k.peeking = true;
+        setTimeout(() => k.peeking = false, 1000);
+      }
+    });
+  }, 2200);
+
+  function update() {
+    if (gameState !== 'PLAYING') return;
+
+    if (keys['ArrowUp'] || keys['w']) player.y = Math.max(player.radius, player.y - player.speed);
+    if (keys['ArrowDown'] || keys['s']) player.y = Math.min(canvas.height - player.radius, player.y + player.speed);
+    if (keys['ArrowLeft'] || keys['a']) player.x = Math.max(player.radius, player.x - player.speed);
+    if (keys['ArrowRight'] || keys['d']) player.x = Math.min(canvas.width - player.radius, player.x + player.speed);
+
+    // Update runners
+    for (let i = runners.length - 1; i >= 0; i--) {
+      const r = runners[i];
+      r.progress += 0.03;
+      r.currX = r.startX + (r.targetX - r.startX) * r.progress;
+      r.currY = r.startY + (r.targetY - r.startY) * r.progress;
+
+      if (r.progress >= 1) {
+        const kid = kids.find(k => k.id === r.id);
+        if (kid) kid.hideoutIndex = r.targetHideoutIndex;
+        runners.splice(i, 1);
+      }
+    }
+
+    // Update confetti
+    confetti.forEach((p, idx) => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.life -= 0.02;
+      if (p.life <= 0) confetti.splice(idx, 1);
+    });
+  }
+
+  function draw() {
+    ctx.fillStyle = '#7ec850';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Grass tufts
+    ctx.fillStyle = '#6db841';
+    for (let x = 30; x < canvas.width; x += 90) {
+      for (let y = 30; y < canvas.height; y += 90) {
+        ctx.beginPath();
+        ctx.arc(x, y, 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    if (gameState === 'PLAYING' || gameState === 'WON' || gameState === 'LOST') {
+      // Peeking kids
+      kids.forEach(k => {
+        if (!k.found && k.peeking) {
+          const h = activeHideouts[k.hideoutIndex];
+          ctx.fillStyle = k.color;
+          ctx.beginPath();
+          ctx.arc(h.x + h.radius * 0.7, h.y - h.radius * 0.5, 11, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      });
+
+      // Hideouts
+      activeHideouts.forEach((h) => {
+        if (h.type === 'tree') {
+          ctx.fillStyle = '#8d5b4c';
+          ctx.fillRect(h.x - 7, h.y, 14, h.radius);
+          ctx.fillStyle = '#2e7d32';
+          ctx.beginPath();
+          ctx.arc(h.x, h.y - 8, h.radius, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.fillStyle = '#4cae50';
+          ctx.beginPath();
+          ctx.arc(h.x, h.y, h.radius, 0, Math.PI * 2);
+          ctx.arc(h.x - 10, h.y + 4, h.radius * 0.7, 0, Math.PI * 2);
+          ctx.arc(h.x + 10, h.y + 4, h.radius * 0.7, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      });
+
+      // Found kids
+      kids.forEach(k => {
+        if (k.found) {
+          const h = activeHideouts[k.hideoutIndex];
+          ctx.fillStyle = k.color;
+          ctx.beginPath();
+          ctx.arc(h.x + h.radius + 14, h.y, 13, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = '#fff';
+          ctx.font = 'bold 11px Arial';
+          ctx.fillText(k.name, h.x + h.radius + 3, h.y + 24);
+        }
+      });
+
+      // Runners
+      runners.forEach(r => {
+        ctx.fillStyle = r.color;
+        ctx.beginPath();
+        ctx.arc(r.currX, r.currY, 12, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Player
+      ctx.fillStyle = player.color;
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#fff';
+      ctx.stroke();
+
+      // Proximity highlight indicator
+      activeHideouts.forEach(h => {
+        if (Math.hypot(player.x - h.x, player.y - h.y) < h.radius + 38) {
+          ctx.strokeStyle = '#ffeb3b';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(h.x, h.y, h.radius + 6, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      });
+
+      // Confetti
+      confetti.forEach(p => {
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x, p.y, p.size, p.size);
+      });
+    }
+
+    // Overlays for Win / Loss
+    if (gameState === 'WON') {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#ffeb3b';
+      ctx.font = 'bold 38px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('🎉 כל הכבוד! מצאת את כולם! 🎉', canvas.width / 2, canvas.height / 2 - 20);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 20px Arial';
+      ctx.fillText('לחץ כאן או על מקש רווח כדי לחזור לתפריט', canvas.width / 2, canvas.height / 2 + 30);
+    } else if (gameState === 'LOST') {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#f44336';
+      ctx.font = 'bold 38px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('⏳ נגמר הזמן! נסה שוב!', canvas.width / 2, canvas.height / 2 - 20);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 20px Arial';
+      ctx.fillText('לחץ כאן או על מקש רווח כדי לחזור לתפריט', canvas.width / 2, canvas.height / 2 + 30);
+    }
+  }
+
+  function createConfetti(x, y) {
+    const colors = ['#ff4081', '#ffeb3b', '#00e676', '#00b0ff', '#e040fb'];
+    for (let i = 0; i < 25; i++) {
+      confetti.push({
+        x: x,
+        y: y,
+        vx: (Math.random() - 0.5) * 7,
+        vy: (Math.random() - 0.5) * 7,
+        size: Math.random() * 5 + 3,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        life: 1
+      });
+    }
+  }
+
+  function createBigWinConfetti() {
+    for (let i = 0; i < 5; i++) {
+      setTimeout(() => {
+        createConfetti(Math.random() * canvas.width, Math.random() * canvas.height);
+      }, i * 200);
+    }
+  }
+
+  function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+  }
+
+  gameLoop();
+</script>
+</body>
+</html>
